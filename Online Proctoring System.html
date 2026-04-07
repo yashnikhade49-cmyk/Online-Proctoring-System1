@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Online Proctoring System</title>
+  <style>
+    body {
+      font-family: 'Segoe UI';
+      background: linear-gradient(to right, #4facfe, #00f2fe);
+      text-align: center;
+      margin: 0;
+    }
+
+    h1 {
+      color: white;
+      margin-top: 20px;
+    }
+
+    .container {
+      width: 420px;
+      margin: auto;
+      background: white;
+      padding: 25px;
+      margin-top: 40px;
+      border-radius: 15px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+    }
+
+    input, button {
+      padding: 12px;
+      margin: 10px;
+      width: 90%;
+      border-radius: 8px;
+      border: none;
+    }
+
+    input {
+      border: 1px solid #ccc;
+    }
+
+    button {
+      background: #4facfe;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #007bff;
+    }
+
+    #video {
+      width: 220px;
+      border-radius: 10px;
+      margin-bottom: 10px;
+    }
+
+    .option {
+      display: block;
+      background: #f1f1f1;
+      margin: 6px;
+      padding: 12px;
+      cursor: pointer;
+      border-radius: 8px;
+      transition: 0.3s;
+    }
+
+    .option:hover {
+      background: #ddd;
+    }
+
+    .selected {
+      background: #4facfe !important;
+      color: white;
+    }
+
+    .correct {
+      background: #28a745 !important;
+      color: white;
+    }
+
+    .wrong {
+      background: #dc3545 !important;
+      color: white;
+    }
+
+    .hidden { display: none; }
+  </style>
+</head>
+
+<body>
+
+<h1>Online Proctoring System</h1>
+
+<!-- LOGIN -->
+<div class="container" id="login">
+  <h2>Student Login</h2>
+  <input type="text" id="username" placeholder="Enter your name">
+  <button onclick="startExam()">Start Exam</button>
+</div>
+
+<!-- EXAM -->
+<div class="container hidden" id="exam">
+  <h3 id="welcome"></h3>
+  <h3 id="timer">Time: 120</h3>
+
+  <video id="video" autoplay></video>
+
+  <h3 id="question"></h3>
+  <div id="options"></div>
+
+  <button onclick="nextQuestion()">Next</button>
+</div>
+
+<!-- RESULT -->
+<div class="container hidden" id="result">
+  <h2>Exam Result</h2>
+  <p id="resultText"></p>
+  <div id="review"></div>
+  <button onclick="restartExam()">Restart Exam</button>
+</div>
+
+<script>
+
+let studentName = "";
+let currentQ = 0;
+let score = 0;
+let selected = "";
+let time = 120;
+let warningCount = 0;
+let userAnswers = [];
+
+const questions = [
+  { q: "What is Software Engineering?", options: ["Hardware design", "Systematic development of software", "Network setup", "Database storage"], answer: "Systematic development of software" },
+  { q: "Which model is also called Waterfall Model?", options: ["Linear Sequential Model", "Spiral Model", "Agile Model", "V-Model"], answer: "Linear Sequential Model" },
+  { q: "Which phase comes first in SDLC?", options: ["Testing", "Design", "Requirement Analysis", "Maintenance"], answer: "Requirement Analysis" },
+  { q: "What does SDLC stand for?", options: ["Software Data Life Cycle", "System Design Life Cycle", "Software Development Life Cycle", "System Data Link Control"], answer: "Software Development Life Cycle" },
+  { q: "Which model is best for large projects?", options: ["Waterfall", "Spiral", "Prototype", "Agile"], answer: "Spiral" },
+  { q: "Which phase involves coding?", options: ["Design", "Implementation", "Testing", "Maintenance"], answer: "Implementation" },
+  { q: "What is debugging?", options: ["Writing code", "Finding errors", "Testing", "Designing"], answer: "Finding errors" },
+  { q: "Agile model is known for?", options: ["Rigid process", "Flexibility", "No testing", "Slow development"], answer: "Flexibility" },
+  { q: "Which document describes requirements?", options: ["SRS", "Design Doc", "Code Doc", "Test Plan"], answer: "SRS" },
+  { q: "What is testing?", options: ["Writing code", "Checking errors", "Designing system", "Deploying system"], answer: "Checking errors" }
+];
+
+// START EXAM
+function startExam() {
+  studentName = document.getElementById("username").value;
+  if(studentName === "") return alert("Enter name!");
+
+  document.getElementById("login").classList.add("hidden");
+  document.getElementById("exam").classList.remove("hidden");
+
+  document.getElementById("welcome").innerText = "Welcome " + studentName;
+
+  startCamera();
+  startTimer();
+  loadQuestion();
+}
+
+// CAMERA
+function startCamera() {
+  navigator.mediaDevices.getUserMedia({ video: true })
+    .then(stream => document.getElementById("video").srcObject = stream)
+    .catch(() => alert("Camera not working!"));
+}
+
+// TIMER
+function startTimer() {
+  let timer = setInterval(() => {
+    time--;
+    document.getElementById("timer").innerText = "Time: " + time + " | Warnings: " + warningCount;
+
+    if(time <= 0) {
+      clearInterval(timer);
+      showResult();
+    }
+  }, 1000);
+}
+
+// LOAD QUESTION
+function loadQuestion() {
+  selected = "";
+  document.getElementById("question").innerText =
+    "Q" + (currentQ+1) + "/" + questions.length + ": " + questions[currentQ].q;
+
+  let html = "";
+  questions[currentQ].options.forEach(opt => {
+    html += `<div class="option" onclick="selectOption(this,'${opt}')">${opt}</div>`;
+  });
+
+  document.getElementById("options").innerHTML = html;
+}
+
+// SELECT OPTION
+function selectOption(el, opt) {
+  selected = opt;
+  document.querySelectorAll(".option").forEach(o => o.classList.remove("selected"));
+  el.classList.add("selected");
+}
+
+// NEXT
+function nextQuestion() {
+  if(selected === "") return alert("Select an option!");
+
+  userAnswers.push(selected);
+
+  if(selected === questions[currentQ].answer) score++;
+
+  currentQ++;
+
+  if(currentQ < questions.length) loadQuestion();
+  else showResult();
+}
+
+// TAB DETECTION
+document.addEventListener("visibilitychange", () => {
+  if(document.hidden) {
+    warningCount++;
+    alert("Warning " + warningCount);
+
+    if(warningCount >= 3) {
+      alert("Exam terminated!");
+      showResult();
+    }
+  }
+});
+
+// RESULT + REVIEW
+function showResult() {
+  document.getElementById("exam").classList.add("hidden");
+  document.getElementById("result").classList.remove("hidden");
+
+  let percentage = (score / questions.length) * 100;
+
+  document.getElementById("resultText").innerText =
+    `Name: ${studentName}
+Score: ${score}/${questions.length}
+Percentage: ${percentage}%
+Result: ${percentage >= 50 ? "PASS" : "FAIL"}`;
+
+  let reviewHTML = "<h3>Review:</h3>";
+
+  questions.forEach((q, i) => {
+    let correct = q.answer;
+    let user = userAnswers[i];
+
+    reviewHTML += `<p><b>Q${i+1}:</b> ${q.q}<br>
+    Your Answer: <span class="${user===correct?'correct':'wrong'}">${user}</span><br>
+    Correct Answer: <span class="correct">${correct}</span></p>`;
+  });
+
+  document.getElementById("review").innerHTML = reviewHTML;
+}
+
+// RESTART
+function restartExam() {
+  location.reload();
+}
+
+</script>
+
+</body>
+</html>
